@@ -81,7 +81,9 @@ def cal_adain_style_loss(x, y):
         x, y: feature maps of size [N, C, H, W]
     """
     x_mean, x_std = calc_mean_std(x)
+    print(x_mean.shape, x_std.shape)
     y_mean, y_std = calc_mean_std(y)
+    print(y_mean.shape, y_std.shape)
 
     return nn.functional.mse_loss(x_mean, y_mean) \
          + nn.functional.mse_loss(x_std, y_std)

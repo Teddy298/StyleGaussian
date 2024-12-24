@@ -203,9 +203,15 @@ def prepare_output_and_logger(args):
 if __name__ == "__main__":
     # Set up command line argument parser
     parser = ArgumentParser(description="Training script parameters")
-    lp = ModelParams(parser)
-    op = OptimizationParams(parser)
-    pp = PipelineParams(parser)
+    # lp = ModelParams(parser)
+    # op = OptimizationParams(parser)
+    # pp = PipelineParams(parser)
+    parser.add_argument('--ip', type=str, default="127.0.0.1")
+    parser.add_argument('--port', type=int, default=6009)
+    parser.add_argument('--gs_type', type=str, default="amorphous")
+    parser.add_argument('--camera', type=str, default="mirror")
+    parser.add_argument("--distance", type=float, default=1.0)
+    parser.add_argument("--num_pts", type=int, default=100_000)
     parser.add_argument('--debug_from', type=int, default=-1)
     parser.add_argument('--detect_anomaly', action='store_true', default=False)
     parser.add_argument("--test_iterations", nargs="+", type=int, default=[7_000, 30_000])
@@ -218,12 +224,23 @@ if __name__ == "__main__":
     parser.add_argument("--exp_name", type=str, default='default')
     parser.add_argument("--style_weight", type=float, default=10.)
     parser.add_argument("--content_preserve", action='store_true', default=False)
+
+    lp = ModelParams(parser)
+    args, _ = parser.parse_known_args(sys.argv[1:])
+    lp.gs_type = args.gs_type
+    lp.camera = args.camera
+    lp.distance = args.distance
+    lp.num_pts = args.num_pts
+
+    op = optimizationParamTypeCallbacks[args.gs_type](parser)
+    pp = PipelineParams(parser)
     args = parser.parse_args(sys.argv[1:])
+
     args.save_iterations.append(args.iterations)
 
     if args.source_path[-1] == '/':
         args.source_path = args.source_path[:-1]
-    
+
     args.model_path = os.path.join("./output", os.path.basename(args.source_path), "artistic", args.exp_name)
     print("Optimizing " + args.model_path + (' with content_preserve' if args.content_preserve else ''))
 
@@ -232,7 +249,8 @@ if __name__ == "__main__":
 
     # configure and run training
     torch.autograd.set_detect_anomaly(args.detect_anomaly)
-    training(lp.extract(args), op.extract(args), pp.extract(args), args.ckpt_path, args.decoder_path, args.style_weight, args.content_preserve)
+    training(lp.extract(args), op.extract(args), pp.extract(args), args.ckpt_path, args.decoder_path,
+             args.style_weight, args.content_preserve)
 
     # All done
     print("\nArtistic training complete.")

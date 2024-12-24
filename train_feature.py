@@ -110,9 +110,14 @@ def prepare_output_and_logger(args):
 if __name__ == "__main__":
     # Set up command line argument parser
     parser = ArgumentParser(description="Training script parameters")
-    lp = ModelParams(parser)
-    op = OptimizationParams(parser)
-    pp = PipelineParams(parser)
+    #op = OptimizationParams(parser)
+    #pp = PipelineParams(parser)
+    parser.add_argument('--ip', type=str, default="127.0.0.1")
+    parser.add_argument('--port', type=int, default=6009)
+    parser.add_argument('--gs_type', type=str, default="amorphous")
+    parser.add_argument('--camera', type=str, default="mirror")
+    parser.add_argument("--distance", type=float, default=1.0)
+    parser.add_argument("--num_pts", type=int, default=100_000)
     parser.add_argument('--debug_from', type=int, default=-1)
     parser.add_argument('--detect_anomaly', action='store_true', default=False)
     parser.add_argument("--test_iterations", nargs="+", type=int, default=[7_000, 30_000])
@@ -120,12 +125,27 @@ if __name__ == "__main__":
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--ply_path", type=str, required=True)
     parser.add_argument("--exp_name", type=str, default='default')
+    parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
+    parser.add_argument("--start_checkpoint", type=str, default=None)
+    parser.add_argument("--save_xyz", action='store_true')
+
+    lp = ModelParams(parser)
+    args, _ = parser.parse_known_args(sys.argv[1:])
+    lp.gs_type = args.gs_type
+    lp.camera = args.camera
+    lp.distance = args.distance
+    lp.num_pts = args.num_pts
+    #op = optimizationParamTypeCallbacks[args.gs_type](parser)
+    op = OptimizationParams(parser)
+    pp = PipelineParams(parser)
     args = parser.parse_args(sys.argv[1:])
+
+
     args.save_iterations.append(args.iterations)
 
     if args.source_path[-1] == '/':
         args.source_path = args.source_path[:-1]
-    
+
     args.model_path = os.path.join("./output", os.path.basename(args.source_path), "feature", args.exp_name)
     print("Optimizing " + args.model_path)
 
