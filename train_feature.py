@@ -24,6 +24,10 @@ from argparse import ArgumentParser, Namespace
 from arguments import ModelParams, PipelineParams, OptimizationParams
 from torch.utils.tensorboard import SummaryWriter
 from scene.VGG import VGGEncoder
+from models import (
+    optimizationParamTypeCallbacks,
+    gaussianModel
+)
 
 
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, ply_path, debug_from):
@@ -135,8 +139,8 @@ if __name__ == "__main__":
     lp.camera = args.camera
     lp.distance = args.distance
     lp.num_pts = args.num_pts
-    #op = optimizationParamTypeCallbacks[args.gs_type](parser)
-    op = OptimizationParams(parser)
+    op = optimizationParamTypeCallbacks[args.gs_type](parser)
+    #op = OptimizationParams(parser)
     pp = PipelineParams(parser)
     args = parser.parse_args(sys.argv[1:])
 
