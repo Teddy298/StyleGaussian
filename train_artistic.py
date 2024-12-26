@@ -30,6 +30,10 @@ import torchvision.transforms as T
 import numpy as np
 from scene.VGG import VGGEncoder, normalize_vgg
 from utils.loss_utils import cal_adain_style_loss, cal_mse_content_loss
+from models import (
+    optimizationParamTypeCallbacks,
+    gaussianModel
+)
 
 def getDataLoader(dataset_path, batch_size, sampler, image_side_length=256, num_workers=2):
     transform = T.Compose([
@@ -65,11 +69,11 @@ class InfiniteSamplerWrapper(torch.utils.data.sampler.Sampler):
     def __len__(self):
         return 2 ** 31
 
-def training(dataset, opt, pipe, ckpt_path, decoder_path, style_weight, content_preserve):
+def training(gs_type, dataset, opt, pipe, ckpt_path, decoder_path, style_weight, content_preserve):
     opt.iterations = 100_000 if not decoder_path else 30_000
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
-    gaussians = GaussianModel(dataset.sh_degree)
+    gaussians = gaussianModel[gs_type](dataset.sh_degree)
     # load the feature reconstructed gaussians ckpt file
     scene = Scene(dataset, gaussians, load_path=ckpt_path)
     vgg_encoder = VGGEncoder().cuda()
@@ -199,7 +203,8 @@ def prepare_output_and_logger(args):
 
     return tb_writer
 
-
+from PIL import Image, ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 if __name__ == "__main__":
     # Set up command line argument parser
     parser = ArgumentParser(description="Training script parameters")
@@ -249,7 +254,7 @@ if __name__ == "__main__":
 
     # configure and run training
     torch.autograd.set_detect_anomaly(args.detect_anomaly)
-    training(lp.extract(args), op.extract(args), pp.extract(args), args.ckpt_path, args.decoder_path,
+    training(args.gs_type, lp.extract(args), op.extract(args), pp.extract(args), args.ckpt_path, args.decoder_path,
              args.style_weight, args.content_preserve)
 
     # All done
