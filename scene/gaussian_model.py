@@ -166,6 +166,91 @@ class GaussianModel:
                                                     lr_delay_mult=training_args.position_lr_delay_mult,
                                                     max_steps=training_args.position_lr_max_steps)
 
+    def training_setup_reconstruction(self, training_args):
+        self.percent_dense = training_args.percent_dense
+        self.xyz_gradient_accum = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
+        self.denom = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
+
+        l = [
+            {'params': [self._xyz], 'lr': training_args.position_lr_init * self.spatial_lr_scale, "name": "xyz"},
+            {'params': [self._features_dc], 'lr': training_args.feature_lr, "name": "f_dc"},
+            {'params': [self._features_rest], 'lr': training_args.feature_lr / 20.0, "name": "f_rest"},
+            {'params': [self._opacity], 'lr': training_args.opacity_lr, "name": "opacity"},
+            {'params': [self._scaling], 'lr': training_args.scaling_lr, "name": "scaling"},
+            {'params': [self._rotation], 'lr': training_args.rotation_lr, "name": "rotation"}
+        ]
+
+        self.optimizer = torch.optim.Adam(l, lr=0.0, eps=1e-15)
+        self.xyz_scheduler_args = get_expon_lr_func(lr_init=training_args.position_lr_init * self.spatial_lr_scale,
+                                                    lr_final=training_args.position_lr_final * self.spatial_lr_scale,
+                                                    lr_delay_mult=training_args.position_lr_delay_mult,
+                                                    max_steps=training_args.position_lr_max_steps)
+
+    def training_setup_feature(self, training_args):
+        # delete spherical harmonics because we don't need them for feature reconstruction
+        del self._features_rest
+        del self._features_dc
+
+        _vgg_features = torch.randn((self.get_xyz.shape[0], 32), device="cuda").requires_grad_(True)
+        self._vgg_features = nn.Parameter(_vgg_features)
+        self.feature_linear = LinearLayer(inChanel=32, out_dim=256).cuda()
+
+        l = [
+            {'params': [self._vgg_features], 'lr': 0.01, "name": "vgg_features"},
+            {'params': self.feature_linear.parameters(), 'lr': 1e-3, "name": "feature_linear"}
+        ]
+
+        self.optimizer = torch.optim.Adam(l, eps=1e-15)
+
+    def training_setup_decoder(self, training_args):
+        # compute the final vgg features for each point
+        self.final_vgg_features = self.feature_linear.forward_directly_on_point(self._vgg_features)
+
+        # delete vgg features and linear layer because we have the perpoint features now
+        del self._vgg_features
+        del self.feature_linear
+
+        # init gaussian conv
+        self.decoder = GaussianConv(self.get_xyz.detach()).cuda()
+
+        l = [
+            {'params': self.decoder.parameters(), 'lr': 2e-3, "name": "decoder"}
+        ]
+
+        self.optimizer = torch.optim.Adam(l, eps=1e-15)
+
+    def training_setup_style(self, training_args, decoder_path, photorealistic=False):
+        # compute the final vgg features for each point
+        self.final_vgg_features = self.feature_linear.forward_directly_on_point(self._vgg_features)
+        self.final_vgg_features += torch.randn_like(
+            self.final_vgg_features)  # Hack: randomness improves stylization quality
+
+        # delete vgg features and linear layer because we have the perpoint features now
+        del self._vgg_features
+        del self.feature_linear
+
+        # init gaussian conv
+        self.decoder = GaussianConv(self.get_xyz.detach(), K=(1 if photorealistic else 8)).cuda()
+        if decoder_path:
+            print('Init decoder from {}'.format(decoder_path))
+            (_xyz,
+             _scaling,
+             _rotation,
+             _opacity,
+             final_vgg_features,
+             decoder_state_dict) = torch.load(decoder_path)
+            self.decoder.load_state_dict(decoder_state_dict)
+
+        # init style transfer module
+        self.style_transfer = MulLayer().cuda()
+
+        l = [
+            {'params': self.decoder.parameters(), 'lr': 1e-3, "name": "decoder"},
+            {'params': self.style_transfer.parameters(), 'lr': 1e-3, "name": "style_transfer"}
+        ]
+
+        self.optimizer = torch.optim.Adam(l, eps=1e-15)
+
     def update_learning_rate(self, iteration):
         ''' Learning rate scheduling per step '''
         for param_group in self.optimizer.param_groups:
