@@ -61,7 +61,28 @@ class GaussianModel:
         self.spatial_lr_scale = 0
         self.setup_functions()
 
-    def capture(self):
+    def capture(self, is_feature_model=False, is_style_model=False):
+
+        if is_feature_model:
+            return (
+                self._xyz,
+                self._scaling,
+                self._rotation,
+                self._opacity,
+                self._vgg_features,
+                self.feature_linear.state_dict(),
+            )
+
+        if is_style_model:
+            return (
+                self._xyz,
+                self._scaling,
+                self._rotation,
+                self._opacity,
+                self.final_vgg_features,
+                self.decoder.state_dict(),
+            )
+
         return (
             self.active_sh_degree,
             self._xyz,
@@ -77,7 +98,31 @@ class GaussianModel:
             self.spatial_lr_scale,
         )
 
-    def restore(self, model_args, training_args):
+    def restore(self, model_args, training_args=None, from_feature_model=False, from_style_model=False):
+
+        if from_feature_model:
+            (self._xyz,
+             self._scaling,
+             self._rotation,
+             self._opacity,
+             self._vgg_features,
+             self.feature_linear_state_dict) = model_args
+            self.feature_linear = LinearLayer(inChanel=32, out_dim=256).cuda()
+            self.feature_linear.load_state_dict(self.feature_linear_state_dict)
+            return
+
+        if from_style_model:
+            (self._xyz,
+             self._scaling,
+             self._rotation,
+             self._opacity,
+             self.final_vgg_features,
+             self.decoder_state_dict) = model_args
+            self.decoder = GaussianConv(self.get_xyz.detach()).cuda()
+            self.decoder.load_state_dict(self.decoder_state_dict)
+            self.style_transfer = MulLayer().cuda()
+            return
+
         (self.active_sh_degree,
          self._xyz,
          self._features_dc,
@@ -90,7 +135,7 @@ class GaussianModel:
          denom,
          opt_dict,
          self.spatial_lr_scale) = model_args
-        self.training_setup(training_args)
+        self.training_setup_reconstruction(training_args)
         self.xyz_gradient_accum = xyz_gradient_accum
         self.denom = denom
         self.optimizer.load_state_dict(opt_dict)
