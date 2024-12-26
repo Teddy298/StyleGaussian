@@ -30,10 +30,10 @@ from models import (
 )
 
 
-def training(dataset, opt, pipe, testing_iterations, saving_iterations, ply_path, debug_from):
+def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations, ply_path, debug_from):
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
-    gaussians = GaussianModel(dataset.sh_degree)
+    gaussians = gaussianModel[gs_type](dataset.sh_degree)
     vgg_encoder = VGGEncoder().cuda()
     # load the rgb reconstructed gaussians ply file
     scene = Scene(dataset, gaussians, load_path=ply_path, vgg_encoder=vgg_encoder)
@@ -158,7 +158,7 @@ if __name__ == "__main__":
 
     # configure and run training
     torch.autograd.set_detect_anomaly(args.detect_anomaly)
-    training(lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.ply_path, args.debug_from)
+    training(args.gs_type, lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.ply_path, args.debug_from)
 
     # All done
     print("\nFeature training complete.")

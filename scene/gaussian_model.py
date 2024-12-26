@@ -20,9 +20,7 @@ from utils.sh_utils import RGB2SH
 from simple_knn._C import distCUDA2
 from utils.graphics_utils import BasicPointCloud
 from utils.general_utils import strip_symmetric, build_scaling_rotation
-from scene.linear_layer import LinearLayer
-from scene.gaussian_conv import GaussianConv
-from scene.style_transfer import MulLayer
+
 
 class GaussianModel:
 
@@ -167,71 +165,6 @@ class GaussianModel:
                                                     lr_final=training_args.position_lr_final * self.spatial_lr_scale,
                                                     lr_delay_mult=training_args.position_lr_delay_mult,
                                                     max_steps=training_args.position_lr_max_steps)
-
-    def training_setup_feature(self, training_args):
-        # delete spherical harmonics because we don't need them for feature reconstruction
-        del self._features_rest
-        del self._features_dc
-
-        _vgg_features = torch.randn((self.get_xyz.shape[0], 32), device="cuda").requires_grad_(True)
-        self._vgg_features = nn.Parameter(_vgg_features)
-        self.feature_linear = LinearLayer(inChanel=32, out_dim=256).cuda()
-
-        l = [
-            {'params': [self._vgg_features], 'lr': 0.01, "name": "vgg_features"},
-            {'params': self.feature_linear.parameters(), 'lr': 1e-3, "name": "feature_linear"}
-        ]
-
-        self.optimizer = torch.optim.Adam(l, eps=1e-15)
-
-    def training_setup_decoder(self, training_args):
-        # compute the final vgg features for each point
-        self.final_vgg_features = self.feature_linear.forward_directly_on_point(self._vgg_features)
-
-        # delete vgg features and linear layer because we have the perpoint features now
-        del self._vgg_features
-        del self.feature_linear
-
-        # init gaussian conv
-        self.decoder = GaussianConv(self.get_xyz.detach()).cuda()
-
-        l = [
-            {'params': self.decoder.parameters(), 'lr': 2e-3, "name": "decoder"}
-        ]
-
-        self.optimizer = torch.optim.Adam(l, eps=1e-15)
-
-    def training_setup_style(self, training_args, decoder_path, photorealistic=False):
-        # compute the final vgg features for each point
-        self.final_vgg_features = self.feature_linear.forward_directly_on_point(self._vgg_features)
-        self.final_vgg_features += torch.randn_like(
-            self.final_vgg_features)  # Hack: randomness improves stylization quality
-
-        # delete vgg features and linear layer because we have the perpoint features now
-        del self._vgg_features
-        del self.feature_linear
-
-        # init gaussian conv
-        self.decoder = GaussianConv(self.get_xyz.detach(), K=(1 if photorealistic else 8)).cuda()
-        if decoder_path:
-            print('Init decoder from {}'.format(decoder_path))
-            (_xyz,
-             _scaling,
-             _rotation,
-             _opacity,
-             final_vgg_features,
-             decoder_state_dict) = torch.load(decoder_path)
-            self.decoder.load_state_dict(decoder_state_dict)
-
-        # init style transfer module
-        self.style_transfer = MulLayer().cuda()
-
-        l = [
-            {'params': self.decoder.parameters(), 'lr': 1e-3, "name": "decoder"},
-            {'params': self.style_transfer.parameters(), 'lr': 1e-3, "name": "style_transfer"}
-        ]
-
-        self.optimizer = torch.optim.Adam(l, eps=1e-15)
 
     def update_learning_rate(self, iteration):
         ''' Learning rate scheduling per step '''
