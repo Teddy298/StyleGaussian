@@ -237,9 +237,9 @@ if __name__ == "__main__":
         render_sets(args.gs_type, model.extract(args), args.iteration, pipeline.extract(args), None, args.skip_train, args.skip_test)
     if len(args.style) == 1: 
         if args.content_interpolate:
-            render_sets_content_interpolate(model.extract(args), pipeline.extract(args), args.style[0])
+            render_sets_content_interpolate(args.gs_type, model.extract(args), pipeline.extract(args), args.style[0])
         else:
-            render_sets(model.extract(args), args.iteration, pipeline.extract(args), args.style[0], args.skip_train, args.skip_test)
+            render_sets(args.gs_type, model.extract(args), args.iteration, pipeline.extract(args), args.style[0], args.skip_train, args.skip_test)
     elif len(args.style) == 4:
         render_sets_style_interpolate(model.extract(args), pipeline.extract(args), args.style)
     else:
