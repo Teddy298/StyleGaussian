@@ -24,6 +24,10 @@ from PIL import Image
 import torchvision.transforms as T
 from pathlib import Path
 from scene.VGG import VGGEncoder, normalize_vgg
+from models import (
+    optimizationParamTypeCallbacks,
+    gaussianModel
+)
 
 def render_set(model_path, name, iteration, views, gaussians, pipeline, background, style=None):
 
@@ -56,9 +60,9 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
         torchvision.utils.save_image(rendering, os.path.join(render_path, '{0:05d}'.format(idx) + ".png"))
         torchvision.utils.save_image(gt, os.path.join(gts_path, '{0:05d}'.format(idx) + ".png"))
 
-def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, style_img_path, skip_train : bool, skip_test : bool):
+def render_sets(gs_type, dataset : ModelParams, iteration : int, pipeline : PipelineParams, style_img_path, skip_train : bool, skip_test : bool):
     with torch.no_grad():
-        gaussians = GaussianModel(dataset.sh_degree)
+        gaussians = gaussianModel[gs_type](dataset.sh_degree)
         style = None
         if style_img_path:
             ckpt_path = os.path.join(dataset.model_path, "chkpnt/gaussians.pth")
@@ -215,14 +219,22 @@ if __name__ == "__main__":
     parser.add_argument("--skip_train", action="store_true")
     parser.add_argument("--skip_test", action="store_true")
     parser.add_argument("--quiet", action="store_true")
+    parser.add_argument('--camera', type=str, default="mirror")
+    parser.add_argument("--distance", type=float, default=1.0)
+    parser.add_argument("--num_pts", type=int, default=100_000)
+    parser.add_argument('--gs_type', type=str, default="gs_flat")
     args = get_combined_args(parser)
+    model.gs_type = args.gs_type
+    model.camera = args.camera
+    model.distance = args.distance
+    model.num_pts = args.num_pts
     print("Rendering " + args.model_path)
 
     # Initialize system state (RNG)
     safe_state(args.quiet)
 
     if not args.style:
-        render_sets(model.extract(args), args.iteration, pipeline.extract(args), None, args.skip_train, args.skip_test)
+        render_sets(args.gs_type, model.extract(args), args.iteration, pipeline.extract(args), None, args.skip_train, args.skip_test)
     if len(args.style) == 1: 
         if args.content_interpolate:
             render_sets_content_interpolate(model.extract(args), pipeline.extract(args), args.style[0])
