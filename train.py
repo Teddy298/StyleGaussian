@@ -9,7 +9,7 @@ if __name__ == '__main__':
     parser.add_argument('--exp_name', type=str, default='default', help='experiment name')
     parser.add_argument('--camera', type=str, default='mirror', help='camera')
     parser.add_argument('--gs_type', type=str, default='amorphous', help='gs_type')
-    parser.add_argument("--style_weight", type=float, default=10., help='style weight lambda')
+    parser.add_argument("--style_weight", type=float, default=10., help='style weight')
 
 
     args = parser.parse_args()
