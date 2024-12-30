@@ -35,5 +35,5 @@ if __name__ == '__main__':
     ckpt_path = f'output/{dataset_name}/feature/{args.exp_name}/chkpnt/feature.pth'
     subprocess.run(['python', 'train_artistic.py',
                     '-s', args.data, '--ckpt_path', ckpt_path, '--exp_name', args.exp_name, '--wikiartdir',
-                    args.wikiartdir, '--camera', args.camera, '--gs_type', args.gs_type, '--style_weight', args.style_weight])
+                    args.wikiartdir, '--camera', args.camera, '--gs_type', args.gs_type, '--style_weight', str(args.style_weight)])
 
