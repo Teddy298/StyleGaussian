@@ -9,6 +9,8 @@ if __name__ == '__main__':
     parser.add_argument('--exp_name', type=str, default='default', help='experiment name')
     parser.add_argument('--camera', type=str, default='mirror', help='camera')
     parser.add_argument('--gs_type', type=str, default='amorphous', help='gs_type')
+    parser.add_argument("--style_weight", type=float, default=10., help='style weight lambda')
+
 
     args = parser.parse_args()
 
@@ -33,5 +35,5 @@ if __name__ == '__main__':
     ckpt_path = f'output/{dataset_name}/feature/{args.exp_name}/chkpnt/feature.pth'
     subprocess.run(['python', 'train_artistic.py',
                     '-s', args.data, '--ckpt_path', ckpt_path, '--exp_name', args.exp_name, '--wikiartdir',
-                    args.wikiartdir, '--camera', args.camera, '--gs_type', args.gs_type])
+                    args.wikiartdir, '--camera', args.camera, '--gs_type', args.gs_type, '--style_weight', args.style_weight])
 
