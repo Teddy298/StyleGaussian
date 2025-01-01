@@ -51,6 +51,12 @@ class Scene:
             scene_info = sceneLoadTypeCallbacks["Mirror"](
                 args.source_path, image2dname, args.white_background, args.eval, args.distance, args.num_pts
             )
+        elif args.camera == "one":
+            image2dname = [x for x in os.listdir(args.source_path) if ("_mirror" not in x) and (x[-3:] == 'png' )][0].split(".")[0]
+
+            scene_info = sceneLoadTypeCallbacks["Image"](
+                args.source_path, image2dname, args.white_background, args.eval, args.distance, args.num_pts
+            )
         else:
             if os.path.exists(os.path.join(args.source_path, "sparse")):
                 scene_info = sceneLoadTypeCallbacks["Colmap"](args.source_path, args.images, args.eval)
